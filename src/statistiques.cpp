@@ -1,138 +1,108 @@
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <format>
+cat << 'EOF' > src/statistiques.cpp
 #include <iostream>
-#include <print>
-#include <sstream>
-#include <string>
-#include <string_view>
 #include <vector>
+#include <cmath>
+#include <string>
+#include <algorithm>
+#include <iomanip>
 
-enum class Mention { Ajourne, Passable, AssezBien, Bien, TresBien };
-constexpr std::size_t nbMentions = 5;
-constexpr double noteMin = 0.0;
-constexpr double noteMax = 20.0;
-constexpr double seuilValidation = 10.0;
+using namespace std;
 
-Mention mentionPour(double note)
-{
-    if (note < seuilValidation) { return Mention::Ajourne; }
-    if (note < 12.0) { return Mention::Passable; }
-    if (note < 14.0) { return Mention::AssezBien; }
-    if (note < 16.0) { return Mention::Bien; }
-    return Mention::TresBien;
+struct StatistiquesNotes {
+    double moyenne;
+    double ecartType;
+    double noteMin;
+    double noteMax;
+    int totalEtudiants;
+    int echecs;
+    int passable;
+    int assezBien;
+    int bien;
+    int tresBien;
+};
+
+StatistiquesNotes calculerStatistiques(const vector<double>& notes) {
+    StatistiquesNotes stats;
+    stats.totalEtudiants = notes.size();
+    
+    if (stats.totalEtudiants == 0) {
+        return {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    }
+
+    double somme = 0;
+    stats.noteMin = notes[0];
+    stats.noteMax = notes[0];
+    stats.echecs = 0;
+    stats.passable = 0;
+    stats.assezBien = 0;
+    stats.bien = 0;
+    stats.tresBien = 0;
+
+    for (double note : notes) {
+        somme += note;
+        if (note < stats.noteMin) stats.noteMin = note;
+        if (note > stats.noteMax) stats.noteMax = note;
+
+        if (note < 10.0) stats.echecs++;
+        else if (note < 12.0) stats.passable++;
+        else if (note < 14.0) stats.assezBien++;
+        else if (note < 16.0) stats.bien++;
+        else stats.tresBien++;
+    }
+
+    stats.moyenne = somme / stats.totalEtudiants;
+
+    double sommeVariance = 0;
+    for (double note : notes) {
+        sommeVariance += pow(note - stats.moyenne, 2);
+    }
+    stats.ecartType = sqrt(sommeVariance / stats.totalEtudiants);
+
+    return stats;
 }
 
-std::string_view libelle(Mention m)
-{
-    using enum Mention;
-    switch (m) {
-        case Ajourne:    return "Ajourné";
-        case Passable:   return "Passable";
-        case AssezBien:  return "Assez bien";
-        case Bien:       return "Bien";
-        case TresBien:   return "Très bien";
-    }
-    return "Inconnue";
+void afficherHistogramme(const StatistiquesNotes& stats) {
+    cout << "\n--- HISTOGRAMME DES MENTIONS ---\n";
+    auto barre = [](int count) { return string(count, '#'); };
+    cout << "Echecs (<10)    : " << barre(stats.echecs) << " (" << stats.echecs << ")\n";
+    cout << "Passable [10-12[: " << barre(stats.passable) << " (" << stats.passable << ")\n";
+    cout << "Assez Bien [12-14[: " << barre(stats.assezBien) << " (" << stats.assezBien << ")\n";
+    cout << "Bien [14-16]    : " << barre(stats.bien) << " (" << stats.bien << ")\n";
+    cout << "Tres Bien (16+) : " << barre(stats.tresBien) << " (" << stats.tresBien << ")\n";
 }
 
-int lireEntier(std::string_view invite, int min, int max)
-{
-    while (true) {
-        std::cout << invite;
-        std::string ligne;
-        if (!std::getline(std::cin, ligne)) {
-            return min; 
-        }
-        std::istringstream flux{ligne};
-        int valeur{};
-        char reste{};
-        if (!(flux >> valeur) || (flux >> reste)) {
-            std::cout << "Saisie invalide. Entrez un nombre entier.\n";
-        } else if (valeur < min || valeur > max) {
-            std::cout << "La valeur doit être comprise entre " << min << " et " << max << ".\n";
-        } else {
-            return valeur;
-        }
-    }
-}
-
-double lireNote(std::string_view invite)
-{
-    while (true) {
-        std::cout << invite;
-        std::string ligne;
-        if (!std::getline(std::cin, ligne)) {
-            return noteMin;
-        }
-        for (char& c : ligne) {
-            if (c == ',') { c = '.'; }
-        }
-        std::istringstream flux{ligne};
-        double note{};
-        char reste{};
-        if (!(flux >> note) || (flux >> reste)) {
-            std::cout << "Saisie invalide.\n";
-        } else if (note < noteMin || note > noteMax) {
-            std::cout << "La note doit être comprise entre 0 et 20.\n";
-        } else {
-            return note;
-        }
-    }
-}
-
-int main()
-{
-    std::cout << "Nom de l'UE : ";
-    std::string ue;
-    std::getline(std::cin, ue);
-
-    const int nb = lireEntier("Nombre d'étudiants (1 à 200) : ", 1, 200);
-
-    std::vector<double> notes;
-    for (int i{1}; i <= nb; ++i) {
-        notes.push_back(lireNote(std::format("Note de l'étudiant {} : ", i)));
+int main() {
+    cout << "=== TP3 : STATISTIQUES D'UNE SERIE DE NOTES ===\n";
+    int n;
+    cout << "Entrez le nombre d'etudiants : ";
+    if (!(cin >> n) || n <= 0) {
+        cout << "Nombre invalide.\n";
+        return 1;
     }
 
-    double minimum{noteMax};
-    double maximum{noteMin};
-    double somme{0.0};
-    int admis{0};
-    std::array<int, nbMentions> repartition{};
-
-    for (double n : notes) {
-        minimum = std::min(minimum, n);
-        maximum = std::max(maximum, n);
-        somme += n;
-        if (n >= seuilValidation) {
-            ++admis;
-        }
-        ++repartition[static_cast<std::size_t>(mentionPour(n))];
+    vector<double> notes(n);
+    for (int i = 0; i < n; ++i) {
+        do {
+            cout << "Note de l'etudiant " << (i + 1) << " (sur 20) : ";
+            cin >> notes[i];
+            if (notes[i] < 0 || notes[i] > 20) {
+                cout << "Erreur : La note doit être comprise entre 0 et 20.\n";
+            }
+        } while (notes[i] < 0 || notes[i] > 20);
     }
 
-    const double taille = static_cast<double>(notes.size());
-    const double moyenne = somme / taille;
+    StatistiquesNotes stats = calculerStatistiques(notes);
 
-    double sommeEcarts{0.0};
-    for (double n : notes) {
-        sommeEcarts += (n - moyenne) * (n - moyenne);
-    }
-    const double ecartType = std::sqrt(sommeEcarts / taille);
+    cout << fixed << setprecision(2);
+    cout << "\n=== RÉSULTATS STATISTIQUES ===\n";
+    cout << "Total d'étudiants : " << stats.totalEtudiants << "\n";
+    cout << "Moyenne de la classe : " << stats.moyenne << " / 20\n";
+    cout << "Écart-type : " << stats.ecartType << "\n";
+    cout << "Note minimale : " << stats.noteMin << " / 20\n";
+    cout << "Note maximale : " << stats.noteMax << " / 20\n";
 
-    std::println("\nStatistiques pour {} ({} étudiants)", ue, nb);
-    std::println("{:-<58}", "");
-    std::println("{:<18} : {:6.2f}", "Note minimale", minimum);
-    std::println("{:<18} : {:6.2f}", "Note maximale", maximum);
-    std::println("{:<18} : {:6.2f}", "Moyenne", moyenne);
-    std::println("{:<18} : {:6.2f}", "Écart-type", ecartType);
-    std::println("{:<18} : {} ({:.1f} %)", "Admis", admis, 100.0 * admis / taille);
-
-    std::println("\nRépartition par mention");
-    for (std::size_t i{0}; i < nbMentions; ++i) {
-        const auto m = static_cast<Mention>(i);
-        std::println("{:<12} {} ({})", libelle(m), std::string(static_cast<std::size_t>(repartition[i]), '*'), repartition[i]);
-    }
+    afficherHistogramme(stats);
 
     return 0;
 }
+EOF
