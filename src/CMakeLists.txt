@@ -17,3 +17,5 @@ target_include_directories(uincampus_core
 )
 target_compile_features(uincampus_core PUBLIC cxx_std_23)
 target_link_libraries(uincampus_core PRIVATE uincampus_options)
+
+target_precompile_headers(uincampus_core PRIVATE <format> <print> <string> <string_view> <vector>)
