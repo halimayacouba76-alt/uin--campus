@@ -4,9 +4,7 @@ project(UINCampus
     DESCRIPTION "Système de gestion académique de l'UIN"
     LANGUAGES CXX
 )
-target_link_libraries(uincampus_core PRIVATE uincampus_options)
-target_include_directories(uincampus_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
-target_compile_definitions(uincampus_core PRIVATE UIN_VERSION="${PROJECT_VERSION}")
+
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(UIN_ACTIVER_SANITIZERS "Activer AddressSanitizer et UBSan" OFF)
