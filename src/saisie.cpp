@@ -1,72 +1,90 @@
 #include "uincampus/saisie.hpp"
-#include "uincampus/regles.hpp"
 #include <iostream>
 #include <sstream>
 
 namespace uin {
-// Constantes de validation des notes
-    inline constexpr double noteMin = 0.0;
-    inline constexpr double noteMax = 20.0;
 
-    // Fonction de validation
-    inline bool estNoteValide(double note) {
-        return note >= noteMin && note <= noteMax;
-    }
-    namespace {
-        std::string lireLigne(std::string_view invite) {
-            std::cout << invite;
-            std::string ligne;
-            std::getline(std::cin, ligne);
-            return ligne;
+namespace {
+
+constexpr double noteMin = 0.0;
+constexpr double noteMax = 20.0;
+
+struct EntierLu {
+    bool valide{false};
+    int valeur{0};
+};
+
+struct ReelLu {
+    bool valide{false};
+    double valeur{0.0};
+};
+
+std::string lireLigne(std::string_view invite)
+{
+    std::cout << invite;
+    std::string ligne;
+    std::getline(std::cin, ligne);
+    return ligne;
+}
+
+[[nodiscard]] EntierLu versEntier(const std::string& texte)
+{
+    std::istringstream flux{texte};
+    int valeur{};
+    char reste{};
+    const bool valide = (flux >> valeur) && !(flux >> reste);
+    return {valide, valeur};
+}
+
+[[nodiscard]] ReelLu versReel(std::string texte)
+{
+    for (char& c : texte) {
+        if (c == ',') {
+            c = '.';
         }
+    }
+    std::istringstream flux{texte};
+    double valeur{};
+    char reste{};
+    const bool valide = (flux >> valeur) && !(flux >> reste);
+    return {valide, valeur};
+}
 
-        bool estEntierStrict(const std::string& texte, int& valeur) {
-            std::istringstream flux{texte};
-            char reste{};
-            return (flux >> valeur) && !(flux >> reste);
-        }
+} // namespace
 
-        bool estReelStrict(std::string texte, double& valeur) {
-            for (char& c : texte) {
-                if (c == ',') { c = '.'; }
-            }
-            std::istringstream flux{texte};
-            char reste{};
-            return (flux >> valeur) && !(flux >> reste);
+std::string lireTexte(std::string_view invite)
+{
+    return lireLigne(invite);
+}
+
+int lireEntier(std::string_view invite, int min, int max)
+{
+    while (std::cin) {
+        const auto [valide, valeur] = versEntier(lireLigne(invite));
+        if (!valide) {
+            std::cout << "Saisie invalide : entrez un nombre entier.\n";
+        } else if (valeur < min || valeur > max) {
+            std::cout << "La valeur doit être comprise entre " << min << " et " << max << ".\n";
+        } else {
+            return valeur;
         }
     }
+    return min;
+}
 
-    std::string lireTexte(std::string_view invite) {
-        return lireLigne(invite);
-    }
-
-    int lireEntier(std::string_view invite, int min, int max) {
-        while (std::cin) {
-            const std::string ligne = lireLigne(invite);
-            int valeur{};
-            if (!estEntierStrict(ligne, valeur)) {
-                std::cout << " Saisie invalide : entrez un nombre entier.\n";
-            } else if (valeur < min || valeur > max) {
-                std::cout << " La valeur doit être comprise entre " << min << " et " << max << ".\n";
-            } else {
-                return valeur;
-            }
+double lireNote(std::string_view invite)
+{
+    while (std::cin) {
+        const auto [valide, note] = versReel(lireLigne(invite));
+        if (!valide) {
+            std::cout << "Saisie invalide : entrez un nombre (ex. 12.5 ou 12,5).\n";
+        } else if (note < noteMin || note > noteMax) {
+            std::cout << "La note doit être comprise entre " << noteMin << " et " << noteMax << ".\n";
+        } else {
+            return note;
         }
-        return min;
     }
+    return noteMin;
+}
 
-    double lireNote(std::string_view invite) {
-        while (std::cin) {
-            const std::string ligne = lireLigne(invite);
-            double note{};
-            if (!estReelStrict(ligne, note)) {
-                std::cout << " Saisie invalide : entrez un nombre (ex. 12.5 ou 12,5).\n";
-            } else if (!estNoteValide(note)) {
-                std::cout << " La note doit être comprise entre " << noteMin << " et " << noteMax << ".\n";
-            } else {
-                return note;
-            }
-        }
-        return noteMin;
-    }
 } // namespace uin

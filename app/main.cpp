@@ -1,42 +1,90 @@
-#include "uincampus/regles.hpp"
-
-#include "uincampus/saisie.hpp"
-
-#include "uincampus/version.hpp"
-
+#include "uincampus/uincampus.hpp"
+#include <cstdlib>
 #include <format>
-
 #include <print>
-
 #include <string>
-
+#include <string_view>
 #include <vector>
+#include <span>
+namespace {
+enum class Suite { Continuer, Terminer, Erreur };
 
-int main() {
-    std::println("UIN-Campus {} - Calcul de la moyenne d'un étudiant\n", uin::version());
-
-    const std::string nom = uin::lireTexte("Nom de l'étudiant : ");
-    const int nbNotes = uin::lireEntier("Nombre de notes (1 à 30): ", 1, 30);
-
-    std::vector<double> notes;
-    for (int i{1}; i <= nbNotes; ++i) {
-        notes.push_back(uin::lireNote(std::format(" Note {} : ", i)));
-    }
-
-    double somme{0.0};
-    for (double n : notes) {
-        somme += n;
-    }
-
-    const double moyenne = somme / static_cast<double>(notes.size());
-    const uin::Mention mention = uin::mentionPour(moyenne);
-
-    std::println("\n{:-<40}", "");
-    std::println("{:<20}{:>20}", "Étudiant", nom);
-    std::println("{:<20}{:>20}", "Nombre de notes", notes.size());
-    std::println("{:<20}{:>20.2f}", "Moyenne", moyenne);
-    std::println("{:<20}{:>20}", "Mention", uin::libelle(mention));
-    std::println("{:<20}{:>20}", "Décision", moyenne >= uin::seuilValidation ? "Validé" : "Non validé");
-    std::println("{:-<40}", "");
+void afficherAide()
+{
+    std::println("Usage: uin-campus [--version] [--aide]");
+    std::println("  --version   affiche la version");
+    std::println("  --aide      affiche cette aide");
 }
 
+[[nodiscard]] Suite traiterOptions(std::span<char*> arguments)
+{
+    if (arguments.size() <= 1) {
+        return Suite::Continuer;
+    }
+    for (const std::string_view option : arguments.subspan(1)) {
+        if (option == "--version") {
+            std::println("{}", uin::informationsConstruction());
+            return Suite::Terminer;
+        }
+        if (option == "--aide") {
+            afficherAide();
+            return Suite::Terminer;
+        }
+        std::println(stderr, "Option inconnue : {}", option);
+        afficherAide();
+        return Suite::Erreur;
+    }
+    return Suite::Continuer;
+}
+
+void afficherLigne(std::string_view libelle, std::string_view valeur)
+{
+    std::println("{:<24}{:>20}", libelle, valeur);
+}
+
+} // namespace
+
+int main(int argc, char* argv[])
+{
+    if (argc > 1 && std::string_view{argv[1]} == "--version") {
+        std::println("uin-campus {}", uin::version());
+        return EXIT_SUCCESS;
+    }
+switch (traiterOptions(std::span<char*>(argv, static_cast<std::size_t>(argc)))) {
+    case Suite::Continuer:
+        break;
+    case Suite::Terminer:
+        return EXIT_SUCCESS;
+    case Suite::Erreur:
+        return EXIT_FAILURE;
+}
+    std::println("UIN-Campus {} — Relevé d'un étudiant\n", uin::version());
+
+    const std::string nom = uin::lireTexte("Nom de l'étudiant : ");
+    const int nbUE = uin::lireEntier("Nombre d'UE (1 à 30) : ", 1, 30);
+
+    std::vector<double> notes;
+    std::vector<double> coefficients;
+
+    for (int i{1}; i <= nbUE; ++i) {
+        notes.push_back(uin::lireNote(std::format("  Note de l'UE {} : ", i)));
+        coefficients.push_back(
+            static_cast<double>(uin::lireEntier(std::format("  Coefficient de l'UE {} : ", i), 1, 10)));
+    }
+
+    const double moyenneGenerale = uin::arrondir(uin::moyenne(notes, coefficients));
+    const auto [mini, maxi, moyenneSimple, ecartType] = uin::calculerStatistiques(notes);
+    const int validees = uin::compterValidees(notes);
+
+    std::println("\n{:-<44}", "");
+    afficherLigne("Étudiant", nom);
+    afficherLigne("Moyenne pondérée", std::format("{:.2f}", moyenneGenerale));
+    afficherLigne("Moyenne simple", std::format("{:.2f}", moyenneSimple));
+    afficherLigne("Note min / max", std::format("{:.2f} / {:.2f}", mini, maxi));
+    afficherLigne("Écart-type", std::format("{:.2f}", ecartType));
+    afficherLigne("UE validées", std::format("{} / {}", validees, nbUE));
+    afficherLigne("Mention", uin::libelle(uin::mentionPour(moyenneGenerale)));
+    std::println("{:-<44}", "");
+
+    return EXIT_SUCCESS;
+}
